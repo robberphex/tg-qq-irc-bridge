@@ -12,6 +12,9 @@ session = aiohttp.ClientSession()
 
 from config import config
 
+if 'http_proxy' not in config:
+    proxy = config['http_proxy'] = None
+
 tele_queue = asyncio.Queue()
 qq_queue = asyncio.Queue()
 irc_queue = asyncio.Queue()
@@ -128,7 +131,7 @@ bot = Client(config['irc']['server'], 6667, ssl=False)
 async def connect(**kwargs):
     bot.send('NICK', nick=config['irc']['nick'])
     bot.send('USER', user=config['irc']['nick'], realname=config['irc']['nick'])
-    bot.send('PRIVMSG',target='x', message='/msg NickServ identify fedora_zh_bot ' + config['irc']['password'])
+    bot.send('PRIVMSG', target='x', message='/msg NickServ identify fedora_zh_bot ' + config['irc']['password'])
 
     # Don't try to join channels until the server has
     # sent the MOTD, or signaled that there's no MOTD.
