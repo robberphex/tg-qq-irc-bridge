@@ -1,0 +1,19 @@
+config = {
+    'http_proxy': 'http://127.0.0.1:8008/',
+    'irc': {
+        'server': 'irc.freenode.net',
+        'port': 6697,
+        'ssl': True,
+        'nick': 'fedora_bot',
+        'password': 'x',
+        'channel': '#bot-test'
+    },
+    'telegram': {
+        'token': '1234567:aaabbbcccdddeee',
+        'chat_id': '-1234567'
+    },
+    'QQ': {
+        'group_id': 1234567,
+        'base_uri': 'ws://1270.0.1:6700'
+    }
+}
