@@ -4,7 +4,9 @@ import json
 import aiohttp
 
 
-def create_telegram_bot(token, chat_id, blacklist=[], http_proxy=None, loop=None):
+def create_telegram_bot(token, chat_id, blacklist=None, http_proxy=None, loop=None):
+    if blacklist is None:
+        blacklist = []
     if not loop:
         loop = asyncio.get_event_loop()
 
@@ -25,9 +27,12 @@ def create_telegram_bot(token, chat_id, blacklist=[], http_proxy=None, loop=None
             resp = await resp.read()
             resp = json.loads(resp.decode())
             for message in resp['result']:
-                message = message['message']
                 print('recv from telegram:')
-                print(message)
+                print(json.dumps(message, indent='  '))
+                # TODO 处理没有 message 字段的消息
+                if 'message' not in message:
+                    continue
+                message = message['message']
                 if message['from']['id'] in blacklist:
                     continue
                 if 'username' in message['from']:
@@ -39,6 +44,9 @@ def create_telegram_bot(token, chat_id, blacklist=[], http_proxy=None, loop=None
                     )
                 else:
                     author = message['from']['first_name']
+                # TODO 处理没有text的message
+                if 'text' not in message:
+                    continue
                 final_msg = '[{author}] {msg}'.format(
                     author=author,
                     msg=message['text'],
