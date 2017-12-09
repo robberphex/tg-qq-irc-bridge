@@ -2,7 +2,9 @@ import asyncio
 from bottom import Client
 
 
-def create_irc_bot(server, port, ssl, nick, channel, blacklist=[], password=None, loop=None):
+def create_irc_bot(server, port, ssl, nick, channel, blacklist=None, password=None, loop=None):
+    if blacklist is None:
+        blacklist = []
     if not loop:
         loop = asyncio.get_event_loop()
 
@@ -54,8 +56,12 @@ def create_irc_bot(server, port, ssl, nick, channel, blacklist=[], password=None
 
     async def irc_send(bot):
         while True:
-            msg = await send_queue.get()
-            bot.send("PRIVMSG", target=channel, message=msg)
+            try:
+                msg = await send_queue.get()
+                bot.send("PRIVMSG", target=channel, message=msg)
+            except RuntimeError:
+                # TODO 没有连接上的处理
+                pass
 
     loop.create_task(irc_send(bot))
 
