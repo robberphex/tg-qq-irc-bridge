@@ -13,7 +13,7 @@ config = {
         'token': '123456:abcdefgABCDEFG',
         'chat_id': '-1234567',
         'blacklist': [
-            'another_telegram_bot'
+            '123456789'
         ],
         'irc': {
             'nick': 'telegram_bot',
@@ -28,7 +28,7 @@ config = {
             'password': 'password_qq',
         },
         'blacklist': [
-            'another_telegram_bot'
+            '123456789'
         ],
     },
 }
