@@ -46,7 +46,7 @@ def telegram(config, loop):
         config['Telegram']['token'],
         config['Telegram']['chat_id'],
         config['Telegram'].get('blacklist', []),
-        http_proxy=config['Telegram']['http_proxy'],
+        http_proxy=config['Telegram'].get('http_proxy'),
     )
     irc_recv, irc_send = create_irc_bot(
         irc_conf['server'],

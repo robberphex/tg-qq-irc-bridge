@@ -1,5 +1,5 @@
 usernicks
-config.py
+config.*py
 __pycache__/
 venv/
 .idea/

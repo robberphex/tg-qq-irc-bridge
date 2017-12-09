@@ -1,19 +1,34 @@
 config = {
-    'http_proxy': 'http://127.0.0.1:8008/',
     'irc': {
-        'server': 'irc.freenode.net',
+        'server': 'chat.freenode.net',
         'port': 6697,
         'ssl': True,
-        'nick': 'fedora_bot',
-        'password': 'x',
-        'channel': '#bot-test'
+        'channel': '#bot-test',
+        'blacklist': [
+            'another_bot'
+        ]
     },
-    'telegram': {
-        'token': '1234567:aaabbbcccdddeee',
-        'chat_id': '-1234567'
+    'Telegram': {
+        'http_proxy': 'http://127.0.0.1:8008/',
+        'token': '123456:abcdefgABCDEFG',
+        'chat_id': '-1234567',
+        'blacklist': [
+            'another_telegram_bot'
+        ],
+        'irc': {
+            'nick': 'telegram_bot',
+            'password': 'password_telegram',
+        },
     },
     'QQ': {
-        'group_id': 1234567,
-        'base_uri': 'ws://1270.0.1:6700'
-    }
+        'group_id': 653148038,
+        'base_uri': 'ws://127.0.0.1:6700',
+        'irc': {
+            'nick': 'tencent_qq_bot',
+            'password': 'password_qq',
+        },
+        'blacklist': [
+            'another_telegram_bot'
+        ],
+    },
 }
