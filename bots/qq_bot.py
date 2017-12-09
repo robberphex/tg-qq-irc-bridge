@@ -5,7 +5,9 @@ import aiohttp
 from aiohttp import ClientWebSocketResponse
 
 
-def create_qq_bot(base_uri, group_id, blacklist=[], password=None, loop=None):
+def create_qq_bot(base_uri, group_id, blacklist=None, password=None, loop=None):
+    if blacklist is None:
+        blacklist = []
     if base_uri.endswith('/'):
         base_uri = base_uri.rstrip('/')
 
