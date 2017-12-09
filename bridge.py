@@ -2,184 +2,82 @@ import asyncio
 import json
 
 import aiohttp
-from aiohttp import ClientWebSocketResponse
 
-from bottom import Client
-
-loop = asyncio.get_event_loop()
-
-session = aiohttp.ClientSession()
-
+from bots.irc_bot import create_irc_bot
+from bots.qq_bot import create_qq_bot
+from bots.telegram_bot import create_telegram_bot
 from config import config
 
-if 'http_proxy' not in config:
-    proxy = config['http_proxy'] = None
 
-tele_queue = asyncio.Queue()
-qq_queue = asyncio.Queue()
-irc_queue = asyncio.Queue()
+def qq(config, loop):
+    irc_conf = config.get('irc', {})
+    irc_conf = {**irc_conf, **config['QQ'].get('irc')}
 
-
-async def event(base_uri):
-    async with session.ws_connect(base_uri + '/event/') as ws:  # type: ClientWebSocketResponse
-        api_ws = await session.ws_connect(base_uri + '/api/')
-        while True:
-            message = await ws.receive_json()
-            if message['post_type'] == "message" and message['message_type'] == "group" \
-                    and 'group_id' in message and message['group_id'] == config['QQ']['group_id']:
-                call = {
-                    "action": "get_group_member_info",
-                    "params": {
-                        "group_id": config['QQ']['group_id'],
-                        "user_id": message['user_id'],
-                        "no_cache": "true"
-                    }
-                }
-                await api_ws.send_json(call)
-                resp = await api_ws.receive_json()
-                author = resp['data']['card']
-                if not author:
-                    author = resp['data']['nickname']
-                final_msg = '[QQ- ' + author + '] ' + message['message']
-            elif message['post_type'] == "event":
-                if message['event'] == "group_decrease":
-                    if message['sub_type'] == "leave":
-                        final_msg = '<-- QQ: ' + str(message['user_id']) + ' 离开群聊'
-                    elif message['sub_type'] in ["kick", "kick_me"]:
-                        final_msg = '<-- QQ: ' + str(message['user_id']) + ' 被踢出群聊'
-                elif message['event'] == "group_increase":
-                    call = {
-                        "action": "get_group_member_info",
-                        "params": {
-                            "group_id": config['QQ']['group_id'],
-                            "user_id": message['user_id'],
-                            "no_cache": "true"
-                        }
-                    }
-                    await api_ws.send_json(call)
-                    resp = await api_ws.receive_json()
-                    author = resp['data']['card']
-                    if not author:
-                        author = resp['data']['nickname']
-                    final_msg = '<-- QQ: ' + author + '(' + str(message['user_id']) + ') 已加入群聊'
-            else:
-                continue
-            await tele_queue.put(final_msg)
-            await irc_queue.put(final_msg)
-
-
-async def api(base_uri):
-    async with session.ws_connect(base_uri + '/api/') as ws:  # type: ClientWebSocketResponse
-        while True:
-            raw_msg = await qq_queue.get()
-            data = {
-                "action": "send_group_msg",
-                "params": {
-                    "group_id": config['QQ']['group_id'],
-                    "message": raw_msg,
-                    "auto_escape": "false"
-                }
-            }
-            await ws.send_json(data)
-            resp = await ws.receive_json()
-            print(resp)
-
-
-async def telebot_recv():
-    url = 'https://api.telegram.org/bot{0}'.format(config['telegram']['token'])
-    message_id = None
-    while True:
-        if message_id:
-            act_url = url + '/getUpdates?timeout=5&offset=' + str(message_id)
-        else:
-            act_url = url + '/getUpdates?timeout=5'
-        resp = await session.get(act_url, proxy=config['http_proxy'])
-        resp = await resp.read()
-        resp = json.loads(resp.decode())
-        for message in resp['result']:
-            message = message['message']
-            from_user = '[Tele- ' + message['from']['first_name'] + ' ' + message['from']['last_name'] + ']'
-            final_msg = from_user + ': ' + message['text']
-            await qq_queue.put(final_msg)
-            await irc_queue.put(final_msg)
-        if len(resp['result']) > 0:
-            message_id = resp['result'][-1]['update_id'] + 1
-
-
-async def telebot():
-    url = 'https://api.telegram.org/bot{0}'.format(config['telegram']['token'])
-    resp = await session.get(url + '/getMe', proxy=config['http_proxy'])
-    resp = await resp.read()
-    resp = resp.decode()  # type: str
-    resp = resp.strip()
-
-    while True:
-        message = await tele_queue.get()
-        resp = await session.get(
-            url + '/sendMessage?chat_id=' + config['telegram']['chat_id'] + "&text=" + message,
-            proxy=config['http_proxy']
-        )
-        resp = await resp.read()
-        resp = json.loads(resp.decode())
-        print(resp)
-
-
-bot = Client(config['irc']['server'], 6667, ssl=False)
-
-
-@bot.on('CLIENT_CONNECT')
-async def connect(**kwargs):
-    bot.send('NICK', nick=config['irc']['nick'])
-    bot.send('USER', user=config['irc']['nick'], realname=config['irc']['nick'])
-    bot.send('PRIVMSG', target='x', message='/msg NickServ identify fedora_zh_bot ' + config['irc']['password'])
-
-    # Don't try to join channels until the server has
-    # sent the MOTD, or signaled that there's no MOTD.
-    done, pending = await asyncio.wait(
-        [bot.wait("RPL_ENDOFMOTD"),
-         bot.wait("ERR_NOMOTD")],
-        loop=bot.loop,
-        return_when=asyncio.FIRST_COMPLETED
+    qq_recv, qq_send = create_qq_bot(config['QQ']['base_uri'], config['QQ']['group_id'])
+    irc_recv, irc_send = create_irc_bot(
+        irc_conf['server'],
+        irc_conf['port'],
+        irc_conf.get('ssl', False),
+        irc_conf['nick'],
+        irc_conf['channel'],
+        irc_conf['blacklist'],
+        irc_conf.get('password')
     )
 
-    # Cancel whichever waiter's event didn't come in.
-    for future in pending:
-        future.cancel()
+    async def qq_irc():
+        while True:
+            msg = await qq_recv.get()
+            await irc_send.put(msg)
 
-    bot.send('JOIN', channel=config['irc']['channel'])
+    async def irc_qq():
+        while True:
+            msg = await irc_recv.get()
+            await qq_send.put(msg)
 
-
-@bot.on('PING')
-def keepalive(message, **kwargs):
-    bot.send('PONG', message=message)
-
-
-@bot.on('PRIVMSG')
-async def message(nick, target, message, **kwargs):
-    """ Echo all messages """
-    # don't echo self
-    if nick == config['irc']['nick']: return
-    msg = '[IRC- {0}] {1}'.format(nick, message)
-    await qq_queue.put(msg)
-    await tele_queue.put(msg)
+    loop.create_task(qq_irc())
+    loop.create_task(irc_qq())
 
 
-bot.loop.create_task(bot.connect())
+def telegram(config, loop):
+    irc_conf = config.get('irc', {})
+    irc_conf = {**irc_conf, **config['Telegram'].get('irc')}
+
+    tele_recv, tele_send = create_telegram_bot(
+        config['Telegram']['token'],
+        config['Telegram']['chat_id'],
+        config['Telegram'].get('blacklist', []),
+        http_proxy=config['Telegram']['http_proxy'],
+    )
+    irc_recv, irc_send = create_irc_bot(
+        irc_conf['server'],
+        irc_conf['port'],
+        irc_conf.get('ssl', False),
+        irc_conf['nick'],
+        irc_conf['channel'],
+        irc_conf['blacklist'],
+        irc_conf.get('password')
+    )
+
+    async def tele_irc():
+        while True:
+            msg = await tele_recv.get()
+            await irc_send.put(msg)
+
+    async def irc_tele():
+        while True:
+            msg = await irc_recv.get()
+            await tele_send.put(msg)
+
+    loop.create_task(tele_irc())
+    loop.create_task(irc_tele())
 
 
-async def irc_send(bot):
-    while True:
-        msg = await irc_queue.get()
-        print(msg)
-        bot.send("PRIVMSG", target=config['irc']['channel'], message=msg)
+def main():
+    loop = asyncio.get_event_loop()
+    qq(config, loop)
+    telegram(config, loop)
+    loop.run_forever()
 
 
-tasks = [
-    asyncio.async(api(config['QQ']['base_uri'])),
-    asyncio.async(event(config['QQ']['base_uri'])),
-    asyncio.async(telebot_recv()),
-    asyncio.async(telebot()),
-    asyncio.async(irc_send(bot)),
-]
-
-loop.run_until_complete(asyncio.wait(tasks))
+if __name__ == '__main__':
+    main()
