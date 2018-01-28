@@ -35,6 +35,9 @@ def create_telegram_bot(token, chat_id, blacklist=None, http_proxy=None, loop=No
                 message = message['message']
                 if message['from']['id'] in blacklist:
                     continue
+                if message.get('chat') and message['chat'].get('id') \
+                    and message['chat']['id'] != int(chat_id):
+                    continue
                 if 'username' in message['from']:
                     author = message['from']['username']
                 elif 'last_name' in message['from']:
